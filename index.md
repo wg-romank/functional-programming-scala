@@ -10,7 +10,7 @@ When doing functional programming we tend to care more about *what* than the und
 
 In this article I attempt to share some of my thoughts on why using functional concepts might be a good idea as well as covering some of the known patterns and why I would use those over their OO counterparts. As we all are coming from different backgrounds your mileage may vary.
 
-I came across functional programming as a thing while getting to know Scala and taking [Martin Odersky's course][1]. The whole idea of representing computation as a value was really new to me so I had to spend some time understanding state management through recursion, but once past that stage things start to get really fun.
+I came across functional programming as a thing while getting to know Scala and taking Martin Odersky's course [[1]]. The whole idea of representing computation as a value was really new to me so I had to spend some time understanding state management through recursion, but once past that stage things start to get really fun.
 
 It has been quite a few conference talks and articles on a subject since my first exposure to the original course to this moment. Here I attempt to make a shortcut to some fundamental concepts that I realized through my journey as well as to improve my understanding by trying to explain them.
 
@@ -28,13 +28,13 @@ Payload could be json or protobuf or any other serialization format of your liki
 
 A well-known (for software engineers) way to represent something going wrong is either throwing an exception or returning a special kind of value (like null).
 
-It can be very easy to forget to do a null check on your inputs before computing something and compilers won't tell you a thing about that mistake. In that case what you end up with is `NullPointerException` which is always fun to debug. (though it seem there has been some improvements on that side [99])
+It can be very easy to forget to do a null check on your inputs before computing something and compilers won't tell you a thing about that mistake. In that case what you end up with is `NullPointerException` which is always fun to debug. (though it seem there has been some improvements on that side [[99]])
 
 Throwing exceptions also has certain disadvantages like being implicit to the caller since information on how to handle failures is not encoded in function signature. Thus it is hard for the caller to reason about what the function is doing just by looking at the function call. More specifically can it fail and should it have special treatment with `try-catch` or not.
 
 Using one of those approaches is an established procedure in many languages already that engineers understand so why change that, you might reasonably ask? Let's look at alternatives of what we have so far.
 
-One way to represent failures as part of function signature exists in Java as *checked exceptions*. It in turn has controversial opinions due to being restrictive - caller has to handle exceptions immediately after performing function call. [100].
+One way to represent failures as part of function signature exists in Java as *checked exceptions*. It in turn has controversial opinions due to being restrictive - caller has to handle exceptions immediately after performing function call. [[100]].
 
 Only a fraction of exception types are checked so this approach also requires complementary measures. Extensive documentation can communicate what kind of possible behaviour caller needs to deal with. In the end that's what good libraries do. But documenting every package-private function in library internals might very soon become a maintenance hassle. After all docs do not compile along with your source code so it is easy for them to get outdated so there are no guarantees (unless you introduce custom tooling). Compilers would happily compile code that does not handle new exception types that were introduced while say migration to a newer library version.
 
@@ -78,7 +78,7 @@ trait DAO[T] {
 }
 ```
 
-This contract is parametric on entity type `T`. Function `create` is returning us `Unit` which clearly indicates that purpose of this function is to communicate with outside world (meaning establish connection with database and write a new entity) which is also called a (*side-effect*)[11].
+This contract is parametric on entity type `T`. Function `create` is returning us `Unit` which clearly indicates that purpose of this function is to communicate with outside world (meaning establish connection with database and write a new entity) which is also called a (*side-effect*)[[11]].
 
 Because this function is not *pure* (as we discussed earlier) and since persisting data is usually an important operation for us any caller would naturally surround those calls within the `try-catch` block. This is another well established OO pattern.
 
@@ -168,7 +168,7 @@ def processOrder(ordersDao: DAO[Order], usersDao: DAO[User],
 } yield ()
 ```
 
-This is possible due to Scala's syntactic sugar for working with `map` and `flatMap` operations that `Future` (implements) [10].
+This is possible due to Scala's syntactic sugar for working with `map` and `flatMap` operations that `Future` (implements) [[10]].
 
 Assuming user notification is a common operation we might want to do in different scenarios we could extract it to a separate method. Using this compositional approach with `Future` allows us to do this easily without extra attention to context. Since all the typical error handling will be taken care of on the `Future` level we do not have to mix our business logic with implementation details.
 
@@ -331,15 +331,25 @@ def sendEmailNotifiation[F : Monad : Users : Email]
   } yield ()
 ```
 
-If you have made it this far - congratulations! You have just implemented a pattern that is called *Tagless-Final*. If you feel like you get the idea but would require some more simple examples I cannot highly recommend this YouTube stream on applying the same patterns [2].
+If you have made it this far - congratulations! You have just implemented a pattern that is called *Tagless-Final*. If you feel like you get the idea but would require some more simple examples I cannot highly recommend this YouTube stream on applying the same patterns [[2]].
 
-## Takeout
+## Takeaway
 
 *Referential transparency* is a really powerful and important property in your codebase to have since it enables you to reason about your code differently freeing you from the requirement to be constantly context-aware.
 
-If you are interested in the idea but not yet fully convinced with provided arguments consider checking out this talk [3].
+If you are interested in the idea but not yet fully convinced with provided arguments consider checking out this talk [[3]].
+
+*Tagless final* is a pattern that enables writing referentially-transparent code using Scala programming language by leveraging typeclasses.
 
 ## References
+
+[[1]]. Functional Programming Principles in Scala by Martin Odersky
+
+[[2]]. John De Goes Fp To The Max
+
+[[3]]. Runar Bjarnasson: Constrains Liberate Liberties Contrain, Scala World 2015 
+
+[[10]]. Scala Reference on Futures composition
 
 [1]: https://www.coursera.org/learn/progfun1
 [2]: https://youtu.be/sxudIMiOo68
