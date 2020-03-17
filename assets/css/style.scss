@@ -4,9 +4,17 @@
 @import "{{ site.theme }}";
 
 .wrapper {
-  width: 80% !important;
+  width: 60% !important;
+}
+
+header {
+  width: 10% !important;
+}
+
+footer {
+  width: 10% !important;
 }
 
 section {
-  width: 70% !important;
+  width: 80% !important;
 }
