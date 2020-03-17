@@ -84,17 +84,17 @@ Because this function is not *pure* (as we discussed earlier) and since persisti
 
 ```scala
 def storeOrder(ordersDao: DAO[Order], payload: String): Unit =
-    try {
+  try {
     val order = parseOrder(payload)
-      ordersDao.create(order)
-    } catch {
-      case e: RecoverableError =>
-        // do recover logic
-        // maybe log/send monitoring stats
-      case e: FatalError =>
-        // log/send monitoring
-        // propagate failure
-    }
+    ordersDao.create(order)
+  } catch {
+    case e: RecoverableError =>
+      // do recover logic
+      // maybe log/send monitoring stats
+    case e: FatalError =>
+      // log/send monitoring
+      // propagate failure
+  }
 ```
 
 This works ok for this small example even though we need to surround any call to database with *try-catch* block (here comes context). 
@@ -116,18 +116,18 @@ Since sending acknowledgement might be a common action that can occur in several
 
 ```scala
 def sendEmailToUser(usersDao: DAO[User], email: Email,
-                    userId: UserId, body: Html): Unit =
-    try {
-      val user = usersDao.get(userId)
-      email.send(user.email, body)
-    } catch {
-      case e: RecoverableError =>
-        // do recover logic
-        // maybe log/send monitoring stats
-      case e: FatalError =>
-        // log/send monitoring
-        // propagate failure
-    }
+                    userId: UUID, body: Html): Unit =
+  try {
+    val user = usersDao.get(userId)
+    email.send(user.email, body)
+  } catch {
+    case e: RecoverableError =>
+      // do recover logic
+      // maybe log/send monitoring stats
+    case e: FatalError =>
+      // log/send monitoring
+      // propagate failure
+  }
 ```
 
 So in order to execute a full scenario we would need to compose those two operations, meaning we first need to execute validation/creation part and then send notification.
@@ -161,10 +161,10 @@ Using this kind of interface for interacting with database / email service we ca
 
 ```scala
 def processOrder(ordersDao: DAO[Order], usersDao: DAO[User],
-                 email: Email, order: Order): Future[Unit] = for {
+                 email: Email, order: Order, body: Html): Future[Unit] = for {
   _ <- ordersDao.create(order)
   user <- usersDao.get(order.userId)
-  _ email.send(user.email, ???)
+  _ email.send(user.email, body)
 } yield ()
 ```
 
@@ -173,18 +173,17 @@ This is possible due to Scala's syntactic sugar for working with `map` and `flat
 Assuming user notification is a common operation we might want to do in different scenarios we could extract it to a separate method. Using this compositional approach with `Future` allows us to do this easily without extra attention to context. Since all the typical error handling will be taken care of on the `Future` level we do not have to mix our business logic with implementation details.
 
 ```scala
-
 def sendEmailNotifiation(usersDao: DAO[User], email: Email,
-                         userId: UserId, body: Html): Future[Unit] =
-    for {
-      user <- usersDao.get(order.userId)
+                         userId: UUID, body: Html): Future[Unit] =
+  for {
+    user <- usersDao.get(order.userId)
     _ <- email.send(user.email, body)
   } yield ()
   
-val processOrder: Future[Unit] = for {
+def processOrder(usersDao: DAO[User], email: Email, order: Order, body: Html): Future[Unit] = for {
   _ <- ordersDao.create(order)
-  _ <- sendEmailNotification(order.userId, ???)
-}
+  _ <- sendEmailNotification(usersDao, email, order.userId, body)
+} yield ()
 ```
 
 This already may seem like a very powerful technique but it has certain shortcomings. The most prominent one as we mentioned already: `Future` is eager primitive and we do not necessarily want our order processing code to fire immediately. Also Scala's `Future` does not support such important functionality like timeout which can be crucial for processing REST requests or working with databases.
@@ -207,7 +206,7 @@ trait Email[F[_]] {
 }
 
 object Email {
-    def apply[F[_]]()(implicit e: Email[F]): Email[F] = e
+  def apply[F[_]]()(implicit e: Email[F]): Email[F] = e
 }
 ```
 
@@ -220,12 +219,12 @@ We also wrote down our *summoner* method `apply` that would allow us to write ou
 Let's declare a method to send a few emails just to make things clear.
 
 ```scala
-def sendFewEmails[F : Email](alice: User, bob: User, manInTheMiddle: User): F[Unit] =
-    for {
-        _ <- Email().send(alice.email, ???)
-      _ <- Email().send(manInTheMiddle.email, ???)
-        _ <- Email().send(bob.email, ???)
-    } yield ()
+def sendFewEmails[F : Email](alice: User, bob: User, manInTheMiddle: User, body: Html): F[Unit] =
+  for {
+    _ <- Email().send(alice.email, body)
+    _ <- Email().send(manInTheMiddle.email, body)
+    _ <- Email().send(bob.email, body)
+  } yield ()
 ```
 
 Another syntactic sugar we use for implicit parameters: having `F : Email` means the same as adding `(implicit e: Email[F])` to our implicit parameter list.
@@ -239,8 +238,8 @@ Using specific type for type parameter `F` we can define several implementations
 ```scala
 implicit val futureEmail = new Email[Future] {
   def send(address: EmailAddress, body: Html): Future[Unit] = Future {
-   // send email logic here 
-    }
+    // send email logic here 
+  }
 }
 ```
 
@@ -270,10 +269,10 @@ Those are the same operations that make our IO primitive composeable. They both 
 Let's get back to our order acknowledgement notification using `Future` and break it down.
 
 ```scala
-def sendEmailNotifiation(userId: UserId, body: Html): Future[Unit] =
-    for {
-      user <- usersDao.get(userId)
-    _ <- email.send(user.email, ???)
+def sendEmailNotifiation(userId: UUID, body: Html): Future[Unit] =
+  for {
+    user <- usersDao.get(userId)
+    _ <- email.send(user.email, body)
   } yield ()
 ```
 
@@ -291,7 +290,7 @@ So if we were to rewrite `sendEmailNotification` exactly without Scala's syntact
 
 ```scala
 usersDao.get(userId).map {
-  user => sendEmailNotification(order.userId, ???).flatMap {
+  user => sendEmailNotification(order.userId, body).flatMap {
     _ => ()
   }
 }
@@ -303,10 +302,10 @@ We cannot yet use our `Monad` trait with the exact syntax we use for `Future`, b
 
 ```scala
 object Monad {
-    implicit class MonadSyntax[F[_], A](fa: F[A])(implicitly m: Monad[F, A]) {
-        def map[B](f: A => B): F[B] = m.map(fa)(f)
-        def flatMap(f: A => F[B]): F[B] = m.flatMap(fa)(f)
-    }
+  implicit class MonadSyntax[F[_], A](fa: F[A])(implicitly m: Monad[F, A]) {
+    def map[B](f: A => B): F[B] = m.map(fa)(f)
+    def flatMap(f: A => F[B]): F[B] = m.flatMap(fa)(f)
+  }
 }
 ```
 
@@ -316,18 +315,17 @@ Assuming we have `MonadSyntax` in scope as well as some *typeclass* defined for 
 import Monad.MonadSyntax
 
 trait Users[F[_]] {
-    def get(userId: UserId): F[User]
+  def get(userId: UUID): F[User]
 }
 
 object Users {
-    def apply()(implicit e: Users[F]): Users[F] = e
+  def apply()(implicit e: Users[F]): Users[F] = e
 }
 
-def sendEmailNotifiation[F : Monad : Users : Email]
-    (userId: UserId, body: Html): F[Unit] =
-    for {
-      user <- usersDao.get(userId)
-    _ <- email.send(user.email, ???)
+def sendEmailNotifiation[F : Monad : Users : Email](userId: UUID, body: Html): F[Unit] =
+  for {
+    user <- Users()..get(userId)
+    _ <- Email().send(user.email, body)
   } yield ()
 ```
 
