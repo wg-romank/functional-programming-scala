@@ -1,7 +1,5 @@
 # Tagless Final
 
-## Motivation
-
 When talking about programming in general (especially execution flow / debugging) people often talk about contexts that in turn are linked with state.
 
 <img src="https://i.redd.it/o1gnotfxi4k01.png" width="256"/>
