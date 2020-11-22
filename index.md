@@ -56,7 +56,7 @@ We also don't have to handle results of function calls immediately (like in case
 
 Pure functions are those functions that evaluate to the same results each time they are called with particular arguments without any dependency on the outside world.
 
-If our code consists only of *pure* and *total* functions then it satisfies a very powerful property called *referential transparency*. This property enables us to substitute any function call with its value and the way around any value can be factored out as a function and reused across databases with no need to worry about context and state management. Sounds like a place to be to do refactoring, right?
+If our code consists only of *pure* and *total* functions then it satisfies a very powerful property called *referential transparency*. This property enables us to substitute any function call with its value and the way around any value can be factored out as a function and reused across codebase with no need to worry about context and state management. Sounds like a place to be to do refactoring, right?
 
 One slight problem here: there is a class of important functions that are not *pure* by definition. Those functions that communicate with the outside world.
 
@@ -110,7 +110,7 @@ trait Email {
 }
 ```
 
-Since sending acknowledgement might be a common action that can occur in several scenarios across our database we would naturally create another method.
+Since sending acknowledgement might be a common action that can occur in several scenarios across our codebase we would naturally create another method.
 
 ```scala
 def sendEmailToUser(usersDao: DAO[User], email: Email,
