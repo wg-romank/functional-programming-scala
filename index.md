@@ -1,4 +1,4 @@
-# Tagless Final
+# Abstracting over runtime with Tagless Final in Scala
 
 When talking about programming in general (especially execution flow / debugging) people often talk about contexts that in turn are linked with state.
 
