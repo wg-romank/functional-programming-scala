@@ -1,4 +1,8 @@
 .idea
+.bloop
+.metals
+.vscode
+!project/plugins.sbt
 project
 out
 target
