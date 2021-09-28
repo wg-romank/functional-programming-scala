@@ -16,9 +16,15 @@ It has been quite a few conference talks and articles on a subject since my firs
 
 Here we go by example. One of simpler examples interacting with the outside world is parsing some kind of payload. Since Web is the world and Web servers are its backbone - this task is well known (from working with REST APIs for instance).
 
-```scala
+```scala mdoc:invisible
+case class UUID()
+case class Order(orderId: UUID, userId: UUID)
+```
+
+```scala mdoc
 def parseOrder(payload: String): Order = {
   // parse a string and construct an Order object
+  ???
 }
 ```
 
@@ -44,8 +50,8 @@ Scala has at least two ways of describing this behavior already in standard libr
 
 From the mathematical standpoint `parseOrder` is not defined on certain values of `payload` argument (empty strings, malformed data, etc.) and by rewriting return type as `Option[String]` instead of plain `String` we can extend our `parseOrder` to be defined for all values of its arguments thus can be called *total*.
 
-```scala
-def parseOrderTotal(payload: String): Option[Order]
+```scala mdoc
+def parseOrderTotal(payload: String): Option[Order] = ???
 ```
 
 Here instead of using special values of the same type (null for instance) or throwing exceptions to represent failure we utilize builtin language primitives to make such behavior more explicit. 
@@ -70,7 +76,7 @@ Let's get back to our payload example: assume that's once parsing is successfull
 
 We might have defined in our code a trait that represents contact of communication with the database.
 
-```scala
+```scala mdoc
 trait DAO[T] {
   def create(t: T): Unit
 }
@@ -80,7 +86,12 @@ This contract is parametric on entity type `T`. Function `create` is returning u
 
 Because this function is not *pure* (as we discussed earlier) and since persisting data is usually an important operation for us any caller would naturally surround those calls within the `try-catch` block. This is another well established OO pattern.
 
-```scala
+```scala mdoc:invisible
+case class RecoverableError() extends Throwable
+case class FatalError() extends Throwable
+```
+
+```scala mdoc
 def storeOrder(ordersDao: DAO[Order], payload: String): Unit =
   try {
     val order = parseOrder(payload)
@@ -99,7 +110,12 @@ This works ok for this small example even though we need to surround any call to
 
 Now say we create an order then we need to send the user who created this order our acknowledgement through email. In order to do that we add another method to our contract for fetching objects (to get our user) as well as introducing a new contract for email communication.
 
-```scala
+```scala mdoc:invisible
+case class EmailAddress()
+case class Html()
+```
+
+```scala mdoc
 trait DAO[T] {
   def create(t: T): Unit
   def get(id: UUID): T
@@ -112,7 +128,11 @@ trait Email {
 
 Since sending acknowledgement might be a common action that can occur in several scenarios across our codebase we would naturally create another method.
 
-```scala
+```scala mdoc:invisible
+case class User(email: EmailAddress)
+```
+
+```scala mdoc
 def sendEmailToUser(usersDao: DAO[User], email: Email,
                     userId: UUID, body: Html): Unit =
   try {
@@ -144,7 +164,9 @@ But we discovered already that *pure* functions can't do much when it comes to i
 
 We will use `Future` as an example of this type since it is already in the standard library even though it has certain shortcomings (like being an eager executor). But in reality we could pick any IO primitive to represent *side-effects*.
 
-```scala
+```scala mdoc
+import scala.concurrent.Future
+
 trait DAO[T] {
   def create(t: T): Future[Unit]
   def get(id: UUID): Future[T]
@@ -157,12 +179,17 @@ trait Email {
 
 Using this kind of interface for interacting with database / email service we can describe the same logic as following:
 
-```scala
-def processOrder(ordersDao: DAO[Order], usersDao: DAO[User],
-                 email: Email, order: Order, body: Html): Future[Unit] = for {
+```scala mdoc
+import scala.concurrent.ExecutionContext
+
+def processOrder(
+  ordersDao: DAO[Order],
+  usersDao: DAO[User],
+  email: Email
+)(order: Order, body: Html)(implicit c: ExecutionContext): Future[Unit] = for {
   _ <- ordersDao.create(order)
   user <- usersDao.get(order.userId)
-  _ email.send(user.email, body)
+  _ <- email.send(user.email, body)
 } yield ()
 ```
 

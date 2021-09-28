@@ -2,6 +2,7 @@
 .bloop
 .metals
 .vscode
+.bsp
 !project/plugins.sbt
 project
 out
